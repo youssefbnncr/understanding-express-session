@@ -5,7 +5,7 @@ app.set("view engine","ejs");
 const PORT = process.env.PORT || 3000;
 
 app.get('/',(req,res)=>{
-  res.send('index');
+  res.render('index');
 })
 
 app.get('/users/register',(req,res)=>{
