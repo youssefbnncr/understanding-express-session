@@ -1,8 +1,15 @@
 <html>
   <head>
     <title>Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.css">
   </head>
   <body>
     <h1>Login</h1>
+    <form action="/users/login" method="post">
+      <input type="email" placeholder="email" name="email" required><br>
+      <input type="password" placeholder="password" name="password1" required><br>
+      <input type="submit" value="Login">
+    </form>
+    <a href="/users/register">Already have account?</a>
   </body>
 </html>
