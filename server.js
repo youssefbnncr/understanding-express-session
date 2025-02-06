@@ -3,11 +3,20 @@ const app = express();
 const pool = require('./db/pool');
 const {body,validationResult} = require("express-validator");
 const bcrypt = require('bcryptjs');
-
+const session = require("express-session");
+const flash = require("express-flash")
 app.set("view engine","ejs");
 app.use(express.urlencoded({extended:false}))
 
 const PORT = process.env.PORT || 3000;
+
+app.use(session({
+  secret: 'secretKey',
+  resave: false,
+  saveUninitialized: false
+}))
+
+app.use(flash());
 
 app.get('/',(req,res)=>{
   res.render('index');
@@ -52,14 +61,13 @@ app.post('/users/register', [
 
     if (emailCheckResult.rows.length > 0) {
       return res.render('register', { errors: [{ msg: 'Email is already registered.' }] });
+    } else {
+      const salt = bcrypt.genSaltSync(10);
+      const hashedPassword = await bcrypt.hash(password1, salt);
+      await pool.query('INSERT INTO users (name, email, password) VALUES ($1, $2, $3)', [name, email, hashedPassword]);
+      req.flash("suceess_registed", "Please log in");
+      res.redirect('/users/login');
     }
-
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = await bcrypt.hash(password1, salt);
-
-    await pool.query('INSERT INTO users (name, email, password) VALUES ($1, $2, $3)', [name, email, hashedPassword]);
-
-    res.redirect('/users/login');
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
