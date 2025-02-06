@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const pool = require('./db/pool');
 const {body,validationResult} = require("express-validator");
+const bcrypt = require('bcryptjs');
 
 app.set("view engine","ejs");
 app.use(express.urlencoded({extended:false}))
@@ -13,7 +14,7 @@ app.get('/',(req,res)=>{
 })
 
 app.get('/users/register',(req,res)=>{
-  res.render('register')
+  res.render('register', {errors:[]})
 })
 
 app.get('/users/login',(req,res)=>{
@@ -38,13 +39,20 @@ app.post('/users/register',[
   body('password2')
     .custom((value, { req }) => value === req.body.password1)
     .withMessage('Passwords do not match.')
-  ],(req,res)=>{
+  ],async (req,res)=>{
     const errors = validationResult(req);
     if(!errors.isEmpty()) {
       return res.render('register', {errors: errors.array()});
-    } else {
-      const { name, email, password1, password2 } = req.body;
-      res.send(`${name} and ${email}`)
+    }
+    const {name,email,password1} = req.body;
+    try {
+      const salt = bcrypt.genSaltSync(10);
+      const hashedPassword = await bcrypt.hash(password1,salt);
+      await pool.query('INSERT INTO users (name,email,password) VALUES ($1,$2,$3)',[name,email,hashedPassword]);
+      res.redirect('/users/login');
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Server error');
     }
   })
 
