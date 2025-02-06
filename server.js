@@ -25,7 +25,7 @@ app.get('/users/dashboard',(req,res)=>{
   res.render('dashboard',{user: "Youssef"})
 })
 
-app.post('/users/register',[
+app.post('/users/register', [
   body('name')
     .trim()
     .matches(/^[A-Za-z\s]+$/)
@@ -39,22 +39,34 @@ app.post('/users/register',[
   body('password2')
     .custom((value, { req }) => value === req.body.password1)
     .withMessage('Passwords do not match.')
-  ],async (req,res)=>{
-    const errors = validationResult(req);
-    if(!errors.isEmpty()) {
-      return res.render('register', {errors: errors.array()});
+], async (req, res) => {
+  const errors = validationResult(req);
+  const { name, email, password1 } = req.body;
+
+  if (!errors.isEmpty()) {
+    return res.render('register', { errors: errors.array() });
+  }
+
+  try {
+    const emailCheckResult = await pool.query('SELECT email FROM users WHERE email = $1', [email]);
+
+    if (emailCheckResult.rows.length > 0) {
+      return res.render('register', { errors: [{ msg: 'Email is already registered.' }] });
     }
-    const {name,email,password1} = req.body;
-    try {
-      const salt = bcrypt.genSaltSync(10);
-      const hashedPassword = await bcrypt.hash(password1,salt);
-      await pool.query('INSERT INTO users (name,email,password) VALUES ($1,$2,$3)',[name,email,hashedPassword]);
-      res.redirect('/users/login');
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Server error');
-    }
-  })
+
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = await bcrypt.hash(password1, salt);
+
+    await pool.query('INSERT INTO users (name, email, password) VALUES ($1, $2, $3)', [name, email, hashedPassword]);
+
+    res.redirect('/users/login');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+
 
 app.listen(PORT,()=>{
   console.log("Server Running");
