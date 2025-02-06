@@ -12,6 +12,13 @@
       <input type="password" placeholder="confirm password" name="password2" required><br>
       <input type="submit" value="Register">
     </form>
+    <% if (errors) { %>
+      <ul>
+        <% errors.forEach(error => { %>
+          <li><%= error.msg %></li>
+        <% }); %>
+      </ul>
+    <% } %>
     <a href="/users/login">Already registered? Login here</a>
   </body>
 </html>
