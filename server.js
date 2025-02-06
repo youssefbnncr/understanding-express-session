@@ -15,29 +15,31 @@ const PORT = process.env.PORT || 3000;
 app.use(session({
   secret: 'secretKey',
   resave: false,
-  saveUninitialized: false
-}))
+  saveUninitialized: false,
+  cookie: { secure: false, httpOnly: true }
+}));
 
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
-passport.use(new LocalStrategy(
-  {usernameField: 'email'}, async(email, password, done) => {
-    const userResult = await pool.query('SELECT * FROM users WHERE email = $1',[email])
-    if(userResult.rows.length === 0){
-      return done(null,false,{message: "No user found with that email"});
-    }
-    const user = userResult.rows[0];
-    const isMatch = await bcrypt.compare(password,user.password);
-
-    if(!isMatch){
-      return done(null,false,{message: "Incorrect password"})
-    }
-
-    return done(null,user);
+passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
+  const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+  if (userResult.rows.length === 0) {
+    console.log("No user found with that email");
+    return done(null, false, { message: "No user found with that email" });
   }
-));
+  const user = userResult.rows[0];
+  const isMatch = await bcrypt.compare(password, user.password);
+
+  if (!isMatch) {
+    console.log("Incorrect password");
+    return done(null, false, { message: "Incorrect password" });
+  }
+
+  console.log("User authenticated");
+  return done(null, user);
+}));
 
 passport.serializeUser((user, done) => {
   done(null, user.id);
@@ -105,7 +107,7 @@ app.post('/users/register', [
       const salt = bcrypt.genSaltSync(10);
       const hashedPassword = await bcrypt.hash(password1, salt);
       await pool.query('INSERT INTO users (name, email, password) VALUES ($1, $2, $3)', [name, email, hashedPassword]);
-      req.flash("suceess_registed", "Please log in");
+      req.flash("success_registed", "Please log in");
       res.redirect('/users/login');
     }
   } catch (err) {
@@ -135,9 +137,9 @@ function isAuthenticated(req, res, next) {
   if (req.isAuthenticated()) {
     return next();
   }
+  req.flash('error_msg', 'Please log in to access the dashboard');
   res.redirect('/users/login');
 }
-
 
 app.listen(PORT,()=>{
   console.log("Server Running");
