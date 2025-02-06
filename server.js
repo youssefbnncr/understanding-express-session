@@ -10,6 +10,10 @@ app.use(express.urlencoded({extended:false}))
 
 const PORT = process.env.PORT || 3000;
 
+app.use(passport.session());
+
+
+
 app.use(session({
   secret: 'secretKey',
   resave: false,
