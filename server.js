@@ -6,13 +6,11 @@ const bcrypt = require('bcryptjs');
 const session = require("express-session");
 const flash = require("express-flash")
 app.set("view engine","ejs");
+const passport = require('passport');
 app.use(express.urlencoded({extended:false}))
+const LocalStrategy = require("passport-local").Strategy;
 
 const PORT = process.env.PORT || 3000;
-
-app.use(passport.session());
-
-
 
 app.use(session({
   secret: 'secretKey',
@@ -20,7 +18,41 @@ app.use(session({
   saveUninitialized: false
 }))
 
+app.use(passport.initialize());
+app.use(passport.session());
 app.use(flash());
+
+passport.use(new LocalStrategy(
+  {usernameField: 'email'}, async(email, password, done) => {
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1',[email])
+    if(userResult.rows.length === 0){
+      return done(null,false,{message: "No user found with that email"});
+    }
+    const user = userResult.rows[0];
+    const isMatch = await bcrypt.compare(password,user.password);
+
+    if(!isMatch){
+      return done(null,false,{message: "Incorrect password"})
+    }
+
+    return done(null,user);
+  }
+));
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    if (userResult.rows.length > 0) {
+      done(null, userResult.rows[0]);
+    } else {
+      done(null, false);
+    }
+  }
+);
+
 
 app.get('/',(req,res)=>{
   res.render('index');
@@ -31,12 +63,16 @@ app.get('/users/register',(req,res)=>{
 })
 
 app.get('/users/login',(req,res)=>{
-  res.render('login')
+  res.render('login');
 })
 
-app.get('/users/dashboard',(req,res)=>{
-  res.render('dashboard',{user: "Youssef"})
-})
+app.get('/users/dashboard', isAuthenticated, (req, res) => {
+  if (!req.user) {
+    return res.redirect('/users/login');
+  }
+  res.render('dashboard', { user: req.user });
+});
+
 
 app.post('/users/register', [
   body('name')
@@ -78,6 +114,29 @@ app.post('/users/register', [
   }
 });
 
+app.post('/users/login', passport.authenticate('local', {
+  successRedirect: '/users/dashboard',
+  failureRedirect: '/users/login',
+  failureFlash: true
+}), (req, res) => {
+  console.log("User is authenticated: ", req.isAuthenticated());
+  res.redirect('/users/dashboard');
+});
+
+
+app.get('/users/logout', (req, res) => {
+  req.logout(() => {
+    req.flash('success_msg', 'You have logged out');
+    res.redirect('/users/login');
+  });
+});
+
+function isAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect('/users/login');
+}
 
 
 app.listen(PORT,()=>{
